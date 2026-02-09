@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chakra Portal Mobile</title>
+
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(circle, #020b08, #000);
+    overflow: hidden;
+    touch-action: none;
+}
+canvas {
+    position: fixed;
+    inset: 0;
+}
+video {
+    display: none;
+}
+</style>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+</head>
+
+<body>
+
+<video id="video" playsinline></video>
+<canvas id="canvas"></canvas>
+
+<script>
+/* ================= SETUP ================= */
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const video = document.getElementById("video");
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+/* ================= HAND TRACK ================= */
+let hand = null;
+
+const hands = new Hands({
+    locateFile: file =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+
+hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 0,        // ringan buat HP
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.6
+});
+
+hands.onResults(res => {
+    if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
+        hand = res.multiHandLandmarks[0];
+    } else {
+        hand = null;
+    }
+});
+
+// Kamera depan HP
+const camera = new Camera(video, {
+    onFrame: async () => {
+        await hands.send({ image: video });
+    },
+    facingMode: "user",
+    width: 480,
+    height: 640
+});
+camera.start();
+
+/* ================= CHAKRA ================= */
+const chakraColors = [
+    "#a855f7", // ibu jari - ungu
+    "#3b82f6", // telunjuk - biru
+    "#22c55e", // tengah - hijau
+    "#facc15", // manis - kuning
+    "#ef4444"  // kelingking - merah
+];
+
+const tips = [4, 8, 12, 16, 20];
+let time = 0;
+
+/* ================= DRAW ================= */
+function animate() {
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (hand) {
+        ctx.globalCompositeOperation = "lighter";
+
+        tips.forEach((id, i) => {
+            const p = hand[id];
+            const cx = p.x * canvas.width;
+            const cy = p.y * canvas.height;
+
+            for (let j = 0; j < 80; j++) {
+                const angle = j * 0.3 + time;
+                const radius = j * 1.3;
+
+                const x = cx + Math.cos(angle) * radius;
+                const y = cy + Math.sin(angle) * radius;
+
+                ctx.beginPath();
+                ctx.fillStyle = chakraColors[i];
+                ctx.shadowColor = chakraColors[i];
+                ctx.shadowBlur = 12;
+                ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+
+        ctx.globalCompositeOperation = "source-over";
+    }
+
+    time += 0.05;
+    requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+
+</body>
+</html>
